@@ -507,3 +507,91 @@ func (j *Jar) domainAndType(host, domain string) (string, bool, error) {
 
 	return domain, false, nil
 }
+
+func (j *Jar) AllCookies() (cookies []*http.Cookie) {
+	return j.allCookies(time.Now())
+}
+
+// allCookies is like AllCookies but takes the current time as a parameter.
+func (j *Jar) allCookies(now time.Time) []*http.Cookie {
+	var selected []entry
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	for _, submap := range j.entries {
+		for _, e := range submap {
+			if !e.Expires.After(now) {
+				// Do not return expired cookies.
+				continue
+			}
+			selected = append(selected, e)
+		}
+	}
+	sort.Slice(selected, func(i, j int) bool {
+		s := selected
+		if len(s[i].Path) != len(s[j].Path) {
+			return len(s[i].Path) > len(s[j].Path)
+		}
+		if !s[i].Creation.Equal(s[j].Creation) {
+			return s[i].Creation.Before(s[j].Creation)
+		}
+		return s[i].seqNum < s[j].seqNum
+	})
+	cookies := make([]*http.Cookie, len(selected))
+	for i, e := range selected {
+		// Note: The returned cookies do not contain sufficient
+		// information to recreate the database.
+		cookies[i] = &http.Cookie{
+			Name:     e.Name,
+			Value:    e.Value,
+			Path:     e.Path,
+			Domain:   e.Domain,
+			Expires:  e.Expires,
+			Secure:   e.Secure,
+			HttpOnly: e.HttpOnly,
+		}
+	}
+
+	return cookies
+}
+
+// Returns all cookies including expired one's
+func (j *Jar) AllCookieswExpires() []*http.Cookie {
+	var selected []entry
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	for _, submap := range j.entries {
+		for _, e := range submap {
+			/*if !e.Expires.After(now) {
+				// Do not return expired cookies.
+				continue
+			}*/
+			selected = append(selected, e)
+		}
+	}
+	sort.Slice(selected, func(i, j int) bool {
+		s := selected
+		if len(s[i].Path) != len(s[j].Path) {
+			return len(s[i].Path) > len(s[j].Path)
+		}
+		if !s[i].Creation.Equal(s[j].Creation) {
+			return s[i].Creation.Before(s[j].Creation)
+		}
+		return s[i].seqNum < s[j].seqNum
+	})
+	cookies := make([]*http.Cookie, len(selected))
+	for i, e := range selected {
+		// Note: The returned cookies do not contain sufficient
+		// information to recreate the database.
+		cookies[i] = &http.Cookie{
+			Name:     e.Name,
+			Value:    e.Value,
+			Path:     e.Path,
+			Domain:   e.Domain,
+			Expires:  e.Expires,
+			Secure:   e.Secure,
+			HttpOnly: e.HttpOnly,
+		}
+	}
+
+	return cookies
+}
